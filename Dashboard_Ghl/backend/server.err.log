@@ -1,0 +1,29 @@
+WARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.
+ * Running on http://127.0.0.1:5000
+Press CTRL+C to quit
+127.0.0.1 - - [28/Sep/2026 12:40:13] "GET /api/health HTTP/1.1" 200 -
+127.0.0.1 - - [28/Sep/2026 12:40:22] "GET /api/recording-proxy?messageId=Ij5yiu9mFHN22TeP0OgF HTTP/1.1" 200 -
+[calls_service] conversation scan: 1074 conversations touched in range, truncated=False, took 8.7s
+[calls_service] conversation scan: 2 conversations touched in range, truncated=False, took 0.8s
+[calls_service] message fetch: 2 ok, 0 failed, in 0.9s, 1 call records found. total scan_calls time 1.7s
+127.0.0.1 - - [28/Sep/2026 12:41:16] "GET /api/overview?start=2026-09-28&end=2026-09-28 HTTP/1.1" 200 -
+127.0.0.1 - - [28/Sep/2026 12:41:45] "GET /api/charts/overview?start=2026-09-28&end=2026-09-28 HTTP/1.1" 200 -
+[calls_service] message fetch: 1074 ok, 0 failed, in 116.4s, 23 call records found. total scan_calls time 125.2s
+127.0.0.1 - - [28/Sep/2026 12:42:28] "GET /api/call-logs?start=2026-09-10&end=2026-09-10 HTTP/1.1" 200 -
+127.0.0.1 - - [28/Sep/2026 12:43:53] "GET / HTTP/1.1" 304 -
+127.0.0.1 - - [28/Sep/2026 12:43:53] "GET /styles.css HTTP/1.1" 304 -
+127.0.0.1 - - [28/Sep/2026 12:43:53] "GET /vendor/chart.umd.min.js HTTP/1.1" 304 -
+127.0.0.1 - - [28/Sep/2026 12:43:53] "GET /app.js HTTP/1.1" 304 -
+127.0.0.1 - - [28/Sep/2026 12:43:53] "GET /api/agents HTTP/1.1" 200 -
+127.0.0.1 - - [28/Sep/2026 12:43:53] "GET /api/pipelines HTTP/1.1" 200 -
+[calls_service] conversation scan: 2 conversations touched in range, truncated=False, took 0.8s
+[calls_service] message fetch: 2 ok, 0 failed, in 0.4s, 1 call records found. total scan_calls time 1.2s
+127.0.0.1 - - [28/Sep/2026 12:43:54] "GET /api/overview?start=2026-09-28&end=2026-09-28 HTTP/1.1" 200 -
+127.0.0.1 - - [28/Sep/2026 12:43:55] "GET /api/call-logs?start=2026-09-28&end=2026-09-28 HTTP/1.1" 200 -
+[calls_service] conversation scan: 186 conversations touched in range, truncated=False, took 1.5s
+127.0.0.1 - - [28/Sep/2026 12:44:07] "GET /api/charts/overview?start=2026-09-28&end=2026-09-28 HTTP/1.1" 200 -
+[calls_service] message fetch: 186 ok, 0 failed, in 17.8s, 64 call records found. total scan_calls time 19.3s
+127.0.0.1 - - [28/Sep/2026 12:44:19] "GET /api/call-logs?start=2026-09-22&end=2026-09-28 HTTP/1.1" 200 -
+127.0.0.1 - - [28/Sep/2026 12:46:46] "GET /api/recording-proxy?messageId=wZ4kZzm5ozBJAQhRVqGW HTTP/1.1" 200 -
+127.0.0.1 - - [28/Sep/2026 12:46:50] "GET /favicon.ico HTTP/1.1" 404 -
+127.0.0.1 - - [28/Sep/2026 12:47:21] "GET /api/recording-proxy?messageId=sUxInanrYpEuzoluZYYb HTTP/1.1" 200 -
