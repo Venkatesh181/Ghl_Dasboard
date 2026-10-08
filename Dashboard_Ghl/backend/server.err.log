@@ -1,29 +1,50 @@
 WARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.
  * Running on http://127.0.0.1:5000
 Press CTRL+C to quit
-127.0.0.1 - - [28/Sep/2026 12:40:13] "GET /api/health HTTP/1.1" 200 -
-127.0.0.1 - - [28/Sep/2026 12:40:22] "GET /api/recording-proxy?messageId=Ij5yiu9mFHN22TeP0OgF HTTP/1.1" 200 -
-[calls_service] conversation scan: 1074 conversations touched in range, truncated=False, took 8.7s
-[calls_service] conversation scan: 2 conversations touched in range, truncated=False, took 0.8s
-[calls_service] message fetch: 2 ok, 0 failed, in 0.9s, 1 call records found. total scan_calls time 1.7s
-127.0.0.1 - - [28/Sep/2026 12:41:16] "GET /api/overview?start=2026-09-28&end=2026-09-28 HTTP/1.1" 200 -
-127.0.0.1 - - [28/Sep/2026 12:41:45] "GET /api/charts/overview?start=2026-09-28&end=2026-09-28 HTTP/1.1" 200 -
-[calls_service] message fetch: 1074 ok, 0 failed, in 116.4s, 23 call records found. total scan_calls time 125.2s
-127.0.0.1 - - [28/Sep/2026 12:42:28] "GET /api/call-logs?start=2026-09-10&end=2026-09-10 HTTP/1.1" 200 -
-127.0.0.1 - - [28/Sep/2026 12:43:53] "GET / HTTP/1.1" 304 -
-127.0.0.1 - - [28/Sep/2026 12:43:53] "GET /styles.css HTTP/1.1" 304 -
-127.0.0.1 - - [28/Sep/2026 12:43:53] "GET /vendor/chart.umd.min.js HTTP/1.1" 304 -
-127.0.0.1 - - [28/Sep/2026 12:43:53] "GET /app.js HTTP/1.1" 304 -
-127.0.0.1 - - [28/Sep/2026 12:43:53] "GET /api/agents HTTP/1.1" 200 -
-127.0.0.1 - - [28/Sep/2026 12:43:53] "GET /api/pipelines HTTP/1.1" 200 -
-[calls_service] conversation scan: 2 conversations touched in range, truncated=False, took 0.8s
-[calls_service] message fetch: 2 ok, 0 failed, in 0.4s, 1 call records found. total scan_calls time 1.2s
-127.0.0.1 - - [28/Sep/2026 12:43:54] "GET /api/overview?start=2026-09-28&end=2026-09-28 HTTP/1.1" 200 -
-127.0.0.1 - - [28/Sep/2026 12:43:55] "GET /api/call-logs?start=2026-09-28&end=2026-09-28 HTTP/1.1" 200 -
-[calls_service] conversation scan: 186 conversations touched in range, truncated=False, took 1.5s
-127.0.0.1 - - [28/Sep/2026 12:44:07] "GET /api/charts/overview?start=2026-09-28&end=2026-09-28 HTTP/1.1" 200 -
-[calls_service] message fetch: 186 ok, 0 failed, in 17.8s, 64 call records found. total scan_calls time 19.3s
-127.0.0.1 - - [28/Sep/2026 12:44:19] "GET /api/call-logs?start=2026-09-22&end=2026-09-28 HTTP/1.1" 200 -
-127.0.0.1 - - [28/Sep/2026 12:46:46] "GET /api/recording-proxy?messageId=wZ4kZzm5ozBJAQhRVqGW HTTP/1.1" 200 -
-127.0.0.1 - - [28/Sep/2026 12:46:50] "GET /favicon.ico HTTP/1.1" 404 -
-127.0.0.1 - - [28/Sep/2026 12:47:21] "GET /api/recording-proxy?messageId=sUxInanrYpEuzoluZYYb HTTP/1.1" 200 -
+127.0.0.1 - - [02/Oct/2026 22:38:19] "GET /api/health HTTP/1.1" 200 -
+127.0.0.1 - - [02/Oct/2026 22:38:29] "GET /api/pipelines HTTP/1.1" 200 -
+127.0.0.1 - - [02/Oct/2026 22:38:32] "GET /api/opportunities/summary?pipelineId=FTla6f5hBQOXuS7Z6pUM&stageId=28e71f38-a726-4abc-a0a3-c87a40ce0456 HTTP/1.1" 200 -
+127.0.0.1 - - [02/Oct/2026 22:39:33] "GET / HTTP/1.1" 200 -
+127.0.0.1 - - [02/Oct/2026 22:39:33] "GET /styles.css HTTP/1.1" 200 -
+127.0.0.1 - - [02/Oct/2026 22:39:33] "GET /vendor/chart.umd.min.js HTTP/1.1" 200 -
+127.0.0.1 - - [02/Oct/2026 22:39:33] "GET /app.js HTTP/1.1" 200 -
+127.0.0.1 - - [02/Oct/2026 22:39:33] "GET /api/pipelines HTTP/1.1" 200 -
+127.0.0.1 - - [02/Oct/2026 22:39:34] "GET /api/agents HTTP/1.1" 200 -
+127.0.0.1 - - [02/Oct/2026 22:39:34] "GET /api/opportunities?start=2026-10-02&end=2026-10-02 HTTP/1.1" 200 -
+127.0.0.1 - - [02/Oct/2026 22:40:28] "GET /api/opportunities/summary?start=2026-10-02&end=2026-10-02 HTTP/1.1" 200 -
+127.0.0.1 - - [02/Oct/2026 22:40:28] "GET /favicon.ico HTTP/1.1" 404 -
+127.0.0.1 - - [02/Oct/2026 22:51:58] "GET /api/health HTTP/1.1" 200 -
+127.0.0.1 - - [02/Oct/2026 22:52:04] "GET /favicon.ico HTTP/1.1" 404 -
+[calls_service] conversation scan: 24 conversations touched in range, truncated=False, took 1.1s
+[calls_service] message fetch: 24 ok, 0 failed, in 3.2s, 6 call records found. total scan_calls time 4.2s
+127.0.0.1 - - [02/Oct/2026 22:52:09] "GET /api/agent-performance?start=2026-10-02&end=2026-10-02 HTTP/1.1" 200 -
+127.0.0.1 - - [02/Oct/2026 22:52:20] "GET /api/health HTTP/1.1" 200 -
+127.0.0.1 - - [02/Oct/2026 22:53:12] "GET /favicon.ico HTTP/1.1" 404 -
+127.0.0.1 - - [02/Oct/2026 22:53:14] "GET / HTTP/1.1" 200 -
+127.0.0.1 - - [02/Oct/2026 22:53:14] "GET /styles.css HTTP/1.1" 304 -
+127.0.0.1 - - [02/Oct/2026 22:53:14] "GET /vendor/chart.umd.min.js HTTP/1.1" 304 -
+127.0.0.1 - - [02/Oct/2026 22:53:14] "GET /app.js HTTP/1.1" 200 -
+127.0.0.1 - - [02/Oct/2026 22:53:14] "GET /api/agents HTTP/1.1" 200 -
+127.0.0.1 - - [02/Oct/2026 22:53:15] "GET /api/pipelines HTTP/1.1" 200 -
+[calls_service] conversation scan: 24 conversations touched in range, truncated=False, took 0.9s
+127.0.0.1 - - [02/Oct/2026 22:53:18] "GET /api/opportunities?start=2026-10-02&end=2026-10-02 HTTP/1.1" 200 -
+[calls_service] message fetch: 24 ok, 0 failed, in 4.7s, 6 call records found. total scan_calls time 5.6s
+127.0.0.1 - - [02/Oct/2026 22:53:20] "GET /api/agent-performance?start=2026-10-02&end=2026-10-02 HTTP/1.1" 200 -
+127.0.0.1 - - [02/Oct/2026 22:53:31] "GET /api/overview?start=2026-10-02&end=2026-10-02 HTTP/1.1" 200 -
+127.0.0.1 - - [02/Oct/2026 22:53:32] "GET /api/charts/overview?start=2026-10-02&end=2026-10-02&pipelineId=FTla6f5hBQOXuS7Z6pUM HTTP/1.1" 200 -
+127.0.0.1 - - [02/Oct/2026 22:53:33] "GET /api/opportunities/summary?start=2026-10-02&end=2026-10-02&pipelineId=FTla6f5hBQOXuS7Z6pUM HTTP/1.1" 200 -
+127.0.0.1 - - [02/Oct/2026 22:54:09] "GET /api/opportunities/summary?start=2026-10-02&end=2026-10-02 HTTP/1.1" 200 -
+127.0.0.1 - - [02/Oct/2026 23:07:14] "GET /api/opportunities?start=2026-10-02&end=2026-10-02&pipelineId=FTla6f5hBQOXuS7Z6pUM HTTP/1.1" 200 -
+127.0.0.1 - - [02/Oct/2026 23:07:16] "GET /api/opportunities/summary?start=2026-10-02&end=2026-10-02&pipelineId=FTla6f5hBQOXuS7Z6pUM HTTP/1.1" 200 -
+127.0.0.1 - - [02/Oct/2026 23:07:29] "GET /api/opportunities?start=2026-10-02&end=2026-10-02&pipelineId=FTla6f5hBQOXuS7Z6pUM&stageId=d641607f-d5a3-45ec-8419-10f59667d733 HTTP/1.1" 200 -
+127.0.0.1 - - [02/Oct/2026 23:07:31] "GET /api/opportunities/summary?start=2026-10-02&end=2026-10-02&pipelineId=FTla6f5hBQOXuS7Z6pUM&stageId=d641607f-d5a3-45ec-8419-10f59667d733 HTTP/1.1" 200 -
+[calls_service] conversation scan: 24 conversations touched in range, truncated=False, took 0.8s
+[calls_service] message fetch: 24 ok, 0 failed, in 4.7s, 6 call records found. total scan_calls time 5.5s
+127.0.0.1 - - [02/Oct/2026 23:21:56] "GET /api/call-logs?start=2026-10-02&end=2026-10-02 HTTP/1.1" 200 -
+[calls_service] conversation scan: 24 conversations touched in range, truncated=False, took 2.1s
+[calls_service] conversation scan: 24 conversations touched in range, truncated=False, took 1.2s
+127.0.0.1 - - [02/Oct/2026 23:33:55] "GET /api/opportunities/summary?start=2026-10-02&end=2026-10-02&pipelineId=FTla6f5hBQOXuS7Z6pUM&stageId=d641607f-d5a3-45ec-8419-10f59667d733 HTTP/1.1" 200 -
+[calls_service] message fetch: 24 ok, 0 failed, in 3.4s, 6 call records found. total scan_calls time 5.4s
+[calls_service] message fetch: 24 ok, 0 failed, in 3.3s, 6 call records found. total scan_calls time 4.5s
+127.0.0.1 - - [02/Oct/2026 23:33:58] "GET /api/overview?start=2026-10-02&end=2026-10-02 HTTP/1.1" 200 -
+127.0.0.1 - - [02/Oct/2026 23:33:59] "GET /api/charts/overview?start=2026-10-02&end=2026-10-02&pipelineId=FTla6f5hBQOXuS7Z6pUM HTTP/1.1" 200 -

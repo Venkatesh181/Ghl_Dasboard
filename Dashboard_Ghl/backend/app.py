@@ -1,5 +1,5 @@
 import os
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 from urllib.parse import urlparse
 
 import requests
@@ -8,16 +8,12 @@ from flask import Flask, Response, jsonify, request, send_from_directory, stream
 from ghl_client import GHLClient, GHLConfigError, GHLAPIError
 from calls_service import scan_calls, call_bucket_stats
 from agents_service import compute_agent_performance, build_name_lookup, match_agent_by_name
-from opportunities_service import build_pipeline_lookup, list_opportunities, sales_by_stage
+from opportunities_service import build_pipeline_lookup, list_opportunities, sales_by_stage, opportunity_status_summary
 from appointments_service import list_appointments
 from charts_service import calls_over_time, calls_by_status
 
 FRONTEND_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "frontend")
 OPPORTUNITY_STATUSES = ["open", "won", "lost", "abandoned"]
-
-# Recording URLs only ever come from data GHL/JustCall itself returned to this app
-# (never user-typed), but the proxy endpoint still only forwards to these hosts as
-# a safety net against being turned into an open proxy.
 ALLOWED_RECORDING_HOSTS = ("justcall.io", "amazonaws.com", "leadconnectorhq.com")
 
 
@@ -54,17 +50,10 @@ def error_response(e):
     if isinstance(e, GHLConfigError):
         return jsonify({"error": "config_error", "message": str(e)}), 500
     if isinstance(e, GHLAPIError):
-        reason = {
-            401: "GHL rejected the API token as invalid/unauthorized.",
-            403: "The token is valid but lacks a required scope for this request.",
-            404: "The requested resource was not found (check IDs / location).",
-            422: "GHL rejected the request parameters.",
-        }.get(e.status_code, "GHL API request failed.")
         return jsonify({
             "error": "ghl_api_error",
             "status_code": e.status_code,
             "endpoint": e.endpoint,
-            "reason": reason,
             "message": str(e),
         }), 502
     return jsonify({"error": "server_error", "message": str(e)}), 500
@@ -118,25 +107,23 @@ def overview():
         start_dt, end_dt = parse_date_range()
 
         total_contacts = client.count_contacts()
+        total_opportunities = client.count_opportunities()
 
         opp_date_filter = [{
             "field": "date_added",
             "operator": "range",
             "value": {"gte": start_dt.strftime("%Y-%m-%d"), "lte": end_dt.strftime("%Y-%m-%d")},
         }]
-        total_opportunities = client.count_opportunities(filters=opp_date_filter)
-
         won_filters = opp_date_filter + [{"field": "status", "operator": "eq", "value": "won"}]
-        total_sales_value = 0.0
-        won_count = 0
-        for o in client.iter_all_opportunities(filters=won_filters, page_size=100):
-            total_sales_value += o.get("monetaryValue") or 0
-            won_count += 1
+        won_data = client.search_opportunities_page(filters=won_filters, limit=100)
+        won_opps = won_data.get("opportunities", [])
+        total_sales_value = sum(o.get("monetaryValue") or 0 for o in won_opps)
+        won_count = won_data.get("total", len(won_opps))
 
         pipeline_list = client.list_pipelines()
         qualified_stage_ids = [
             s["id"] for p in pipeline_list for s in p.get("stages", [])
-            if s.get("name", "").strip().lower() == "qualified"
+            if "qualif" in s.get("name", "").strip().lower()
         ]
         qualified_total = 0
         for stage_id in qualified_stage_ids:
@@ -152,23 +139,15 @@ def overview():
 
         return jsonify({
             "date_range": {"start": start_dt.strftime("%Y-%m-%d"), "end": end_dt.strftime("%Y-%m-%d")},
-            "contacts": {"total": total_contacts, "note": "All-time total, not date-filtered"},
-            "opportunities": {"total": total_opportunities, "note": "Opportunities created within the selected date range"},
-            "sales": {
-                "total_value": round(total_sales_value, 2),
-                "won_count": won_count,
-                "note": "Sum of monetaryValue for opportunities with status=won, created within range",
-            },
-            "qualified_appointments": {
-                "total": qualified_total,
-                "note": "Opportunities currently sitting in a pipeline stage named 'Qualified' "
-                        "(GHL has no separate 'qualified appointment' concept; this is the closest real field)",
-            },
+            "contacts": {"total": total_contacts},
+            "opportunities": {"total": total_opportunities},
+            "sales": {"total_value": round(total_sales_value, 2), "won_count": won_count},
+            "qualified_appointments": {"total": qualified_total},
             "calls": {
                 "combined": call_bucket_stats(all_calls),
-                "native": {**call_bucket_stats(native_calls), "note": "Native GHL calls (messageType=TYPE_CALL)"},
-                "justcall": {**call_bucket_stats(justcall_calls), "note": "Parsed from JustCall integration text logs"},
-                "voice_ai": {**call_bucket_stats(voice_ai_calls), "note": "AI Voice Agent calls (subType=VOICE_AI)"},
+                "native": call_bucket_stats(native_calls),
+                "justcall": call_bucket_stats(justcall_calls),
+                "voice_ai": call_bucket_stats(voice_ai_calls),
                 "scan_truncated": truncated,
             },
         })
@@ -219,7 +198,7 @@ def call_logs():
                 agent_name = (user.get("name") if user else None) or "Unassigned"
             else:
                 matched = match_agent_by_name(c.get("agent_name"), name_lookup)
-                agent_name = matched.get("name") if matched else (f"Unmatched name: {c.get('agent_name')}" if c.get("agent_name") else "Unknown")
+                agent_name = matched.get("name") if matched else (f"Unmatched: {c.get('agent_name')}" if c.get("agent_name") else "Unknown")
 
             if agent_id:
                 real_agent_id = c.get("agent_user_id") or (match_agent_by_name(c.get("agent_name"), name_lookup) or {}).get("id")
@@ -249,7 +228,6 @@ def call_logs():
             })
 
         rows.sort(key=lambda r: r["date_added"] or "", reverse=True)
-
         return jsonify({
             "date_range": {"start": start_dt.strftime("%Y-%m-%d"), "end": end_dt.strftime("%Y-%m-%d")},
             "rows": rows,
@@ -266,6 +244,7 @@ def opportunities():
         start_dt, end_dt = parse_date_range()
         agent_id = request.args.get("agentId") or None
         pipeline_id = request.args.get("pipelineId") or None
+        stage_id = request.args.get("stageId") or None
         status = request.args.get("status") or None
         search = (request.args.get("search") or "").strip().lower()
 
@@ -275,7 +254,7 @@ def opportunities():
 
         rows, total = list_opportunities(
             client, start_dt, end_dt, users, pipeline_by_id, stage_by_id,
-            agent_id=agent_id, pipeline_id=pipeline_id, status=status, limit=200,
+            agent_id=agent_id, pipeline_id=pipeline_id, stage_id=stage_id, status=status, limit=200,
         )
 
         if search:
@@ -286,7 +265,26 @@ def opportunities():
             "rows": rows,
             "total": total,
             "returned": len(rows),
-            "truncated": total > len(rows) and not search,
+        })
+    except Exception as e:
+        return error_response(e)
+
+
+@app.route("/api/opportunities/summary")
+def opportunities_summary():
+    try:
+        client = get_client()
+        agent_id = request.args.get("agentId") or None
+        pipeline_id = request.args.get("pipelineId") or None
+        stage_id = request.args.get("stageId") or None
+
+        summary = opportunity_status_summary(client, agent_id=agent_id, pipeline_id=pipeline_id, stage_id=stage_id)
+        pipeline_list = client.list_pipelines()
+        by_stage = sales_by_stage(client, pipeline_list, agent_id=agent_id, pipeline_id=pipeline_id)
+
+        return jsonify({
+            "by_stage": by_stage,
+            **summary,
         })
     except Exception as e:
         return error_response(e)
@@ -302,7 +300,6 @@ def appointments():
 
         users = users_by_id_map(client)
         rows = list_appointments(client, start_dt, end_dt, users, agent_id=agent_id, status=status)
-
         return jsonify({
             "date_range": {"start": start_dt.strftime("%Y-%m-%d"), "end": end_dt.strftime("%Y-%m-%d")},
             "rows": rows,
@@ -316,17 +313,20 @@ def charts_overview():
     try:
         client = get_client()
         start_dt, end_dt = parse_date_range()
+        agent_id = request.args.get("agentId") or None
+        pipeline_id = request.args.get("pipelineId") or None
 
         calls, truncated = scan_calls(client, start_dt, end_dt)
         users = client.list_users()
         agent_rows = compute_agent_performance(calls, users)
         pipeline_list = client.list_pipelines()
+        by_stage = sales_by_stage(client, pipeline_list, agent_id=agent_id, pipeline_id=pipeline_id)
 
         return jsonify({
             "calls_over_time": calls_over_time(calls),
             "calls_by_status": calls_by_status(calls),
             "calls_by_agent": [{"agent_name": r["agent_name"], "total_calls": r["total_calls"]} for r in agent_rows[:10]],
-            "sales_by_stage": sales_by_stage(client, start_dt, end_dt, pipeline_list),
+            "sales_by_stage": by_stage,
             "scan_truncated": truncated,
         })
     except Exception as e:
@@ -335,20 +335,8 @@ def charts_overview():
 
 @app.route("/api/recording-proxy")
 def recording_proxy():
-    """Streams a call recording through this server instead of the browser
-    fetching it directly.
-
-    Two sources, both needing a same-origin proxy for different reasons:
-    - JustCall (?url=...): their recording hosts serve the file fine to a normal
-      page navigation but reject it when the browser requests it as an embedded
-      <audio> sub-resource.
-    - Native GHL calls (?messageId=...): the recording lives behind GHL's own
-      authenticated API, which the browser has no token to call directly - this
-      server fetches it with the token GHL_API_TOKEN and streams it back.
-    """
     message_id = request.args.get("messageId")
     url = request.args.get("url")
-
     range_header = request.headers.get("Range")
 
     if message_id:
@@ -360,21 +348,16 @@ def recording_proxy():
     elif url:
         parsed = urlparse(url)
         if parsed.scheme not in ("http", "https") or not _host_allowed(parsed.hostname):
-            return jsonify({"error": "host_not_allowed", "message": "This recording host isn't on the allowed list."}), 400
+            return jsonify({"error": "host_not_allowed"}), 400
         headers = {"Range": range_header} if range_header else {}
-        try:
-            upstream = requests.get(url, headers=headers, stream=True, timeout=30)
-        except requests.RequestException as e:
-            return jsonify({"error": "upstream_error", "message": str(e)}), 502
+        upstream = requests.get(url, headers=headers, stream=True, timeout=30)
     else:
-        return jsonify({"error": "missing_params", "message": "Provide either messageId or url."}), 400
+        return jsonify({"error": "missing_params"}), 400
 
     if upstream.status_code >= 400:
         status = upstream.status_code
         upstream.close()
-        if status == 404:
-            return jsonify({"error": "not_found", "message": "No recording exists for this call."}), 404
-        return jsonify({"error": "upstream_error", "status_code": status}), 502
+        return jsonify({"error": "upstream_error", "status_code": status}), status
 
     def generate():
         try:
@@ -384,14 +367,8 @@ def recording_proxy():
         finally:
             upstream.close()
 
-    passthrough_headers = {}
-    for h in ("Content-Type", "Content-Length", "Content-Range", "Accept-Ranges"):
-        if h in upstream.headers:
-            passthrough_headers[h] = upstream.headers[h]
-    passthrough_headers.setdefault("Content-Type", "audio/mpeg")
-    passthrough_headers.setdefault("Accept-Ranges", "bytes")
-
-    return Response(stream_with_context(generate()), status=upstream.status_code, headers=passthrough_headers)
+    headers = {"Content-Type": upstream.headers.get("Content-Type", "audio/mpeg")}
+    return Response(stream_with_context(generate()), status=upstream.status_code, headers=headers)
 
 
 @app.route("/")

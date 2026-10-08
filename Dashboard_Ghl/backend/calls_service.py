@@ -1,31 +1,23 @@
 """
 Scans GHL conversations for call activity within a date range and classifies
-each call message as either a native structured GHL call (messageType TYPE_CALL)
-or a JustCall-integration call logged as text (see call_parser.py).
-
-Conversations are paginated newest-first by last_message_date and the scan stops
-once a conversation's last activity falls before the requested start date - since
-a conversation's last_message_date is always >= the date of any message inside it,
-this correctly bounds the scan to every conversation that could contain a call in
-range, without requiring a native date-range filter (the GHL conversations search
-API does not offer one).
+each call message as either a native structured GHL call or JustCall.
 """
 import sys
 import threading
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from datetime import datetime, timezone
+from datetime import datetime
 
 from call_parser import parse_justcall_body
 from ghl_client import GHLAPIError
 
-MESSAGE_FETCH_WORKERS = 8
-CACHE_TTL_SECONDS = 20
+MESSAGE_FETCH_WORKERS = 12
+CACHE_TTL_SECONDS = 300  # 5 minutes cache
+SCAN_SAFETY_CAP = 1200
 
 _cache_lock = threading.Lock()
-_cache = {}  # (start_ms, end_ms) -> (expires_at, calls, truncated)
-
-SCAN_SAFETY_CAP = 3000  # max conversations to walk per request, to bound worst-case latency
+_cache = {}
+_inflight_scans = {}
 
 
 def _iso_to_ms(value):
@@ -34,7 +26,7 @@ def _iso_to_ms(value):
     if isinstance(value, (int, float)):
         return int(value)
     try:
-        dt = datetime.fromisoformat(value.replace("Z", "+00:00"))
+        dt = datetime.fromisoformat(str(value).replace("Z", "+00:00"))
         return int(dt.timestamp() * 1000)
     except ValueError:
         return None
@@ -47,11 +39,6 @@ def _classify_message(message, conversation_id, contact_info):
     if message_type == "TYPE_CALL":
         meta_call = (message.get("meta") or {}).get("call") or {}
         status = meta_call.get("status") or message.get("status")
-        # GHL's native call recording lives behind a separate endpoint (not a field
-        # on the message), so there's no way to know in advance whether one exists.
-        # "completed" (a talked-to-someone call) and "voicemail" (the caller left an
-        # actual audio message) are the only statuses that can have real audio - a
-        # no-answer/busy call was never connected, so there's nothing to record.
         recording_kind = "native" if status in ("completed", "voicemail") else None
         return {
             "source": "native",
@@ -107,30 +94,45 @@ def _classify_message(message, conversation_id, contact_info):
     return None
 
 
-def _log(msg):
-    print(f"[calls_service] {msg}", file=sys.stderr, flush=True)
-
-
 def scan_calls(client, start_dt, end_dt):
     start_ms = int(start_dt.timestamp() * 1000)
     end_ms = int(end_dt.timestamp() * 1000)
-
     cache_key = (start_ms, end_ms)
+
     with _cache_lock:
         cached = _cache.get(cache_key)
         if cached and cached[0] > time.time():
             return cached[1], cached[2]
 
-    calls, truncated = _scan_calls_uncached(client, start_ms, end_ms)
+        if cache_key in _inflight_scans:
+            event = _inflight_scans[cache_key]
+            is_leader = False
+        else:
+            event = threading.Event()
+            _inflight_scans[cache_key] = event
+            is_leader = True
 
-    with _cache_lock:
-        _cache[cache_key] = (time.time() + CACHE_TTL_SECONDS, calls, truncated)
-    return calls, truncated
+    if not is_leader:
+        event.wait(timeout=45)
+        with _cache_lock:
+            cached = _cache.get(cache_key)
+            if cached:
+                return cached[1], cached[2]
+
+    try:
+        calls, truncated = _scan_calls_uncached(client, start_ms, end_ms)
+        with _cache_lock:
+            _cache[cache_key] = (time.time() + CACHE_TTL_SECONDS, calls, truncated)
+        return calls, truncated
+    finally:
+        if is_leader:
+            with _cache_lock:
+                _inflight_scans.pop(cache_key, None)
+            event.set()
 
 
 def _scan_calls_uncached(client, start_ms, end_ms):
     t0 = time.time()
-
     touched_conversations = []
     start_after_date = None
     start_after = None
@@ -166,10 +168,6 @@ def _scan_calls_uncached(client, start_ms, end_ms):
         start_after_date = sort_vals[0]
         start_after = last.get("id")
 
-    t1 = time.time()
-    _log(f"conversation scan: {len(touched_conversations)} conversations touched in range, "
-         f"truncated={truncated}, took {t1 - t0:.1f}s")
-
     contact_info_by_conv = {
         c["id"]: {
             "name": c.get("contactName") or c.get("fullName"),
@@ -179,7 +177,6 @@ def _scan_calls_uncached(client, start_ms, end_ms):
     }
 
     calls = []
-    fetched = 0
     failed_conv_ids = []
 
     def fetch(conv_id):
@@ -191,11 +188,9 @@ def _scan_calls_uncached(client, start_ms, end_ms):
             conv_id = futures[future]
             try:
                 conv_id, messages = future.result()
-            except GHLAPIError as e:
+            except GHLAPIError:
                 failed_conv_ids.append(conv_id)
-                _log(f"FAILED to fetch messages for conversation {conv_id} after retries: {e}")
                 continue
-            fetched += 1
             for m in messages:
                 ts_ms = _iso_to_ms(m.get("dateAdded"))
                 if ts_ms is None or ts_ms < start_ms or ts_ms > end_ms:
@@ -204,13 +199,10 @@ def _scan_calls_uncached(client, start_ms, end_ms):
                 if record:
                     calls.append(record)
 
-    t2 = time.time()
-    _log(f"message fetch: {fetched} ok, {len(failed_conv_ids)} failed, in {t2 - t1:.1f}s, "
-         f"{len(calls)} call records found. total scan_calls time {t2 - t0:.1f}s")
-
     if failed_conv_ids:
         truncated = True
 
+    print(f"[calls_service] Scanned in {time.time() - t0:.2f}s ({len(calls)} calls)", file=sys.stderr, flush=True)
     return calls, truncated
 
 
