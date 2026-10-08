@@ -1,4 +1,5 @@
 import os
+import sys
 from datetime import datetime, timezone
 from urllib.parse import urlparse
 
@@ -12,23 +13,43 @@ from opportunities_service import build_pipeline_lookup, list_opportunities, sal
 from appointments_service import list_appointments
 from charts_service import calls_over_time, calls_by_status
 
-# Robust frontend directory resolution for both Local and Vercel environments
-CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
-POSSIBLE_FRONTEND_PATHS = [
-    os.path.join(os.path.dirname(CURRENT_DIR), "frontend"),
-    os.path.join(CURRENT_DIR, "frontend"),
-    os.path.join(os.getcwd(), "frontend"),
-    os.path.join(os.getcwd(), "Dashboard_Ghl", "frontend"),
-    "/var/task/frontend",
-    "/var/task/Dashboard_Ghl/frontend",
-]
 
-FRONTEND_DIR = os.path.join(os.path.dirname(CURRENT_DIR), "frontend")
-for p in POSSIBLE_FRONTEND_PATHS:
-    if os.path.isdir(p) and os.path.exists(os.path.join(p, "index.html")):
-        FRONTEND_DIR = p
-        break
+def locate_frontend_dir():
+    """Dynamically finds the directory containing index.html on both Local and Vercel."""
+    current_dir = os.path.dirname(os.path.abspath(__file__))
 
+    # 1. Common candidate locations
+    candidates = [
+        os.path.join(current_dir, "frontend"),
+        os.path.join(os.path.dirname(current_dir), "frontend"),
+        os.path.join(os.getcwd(), "frontend"),
+        os.path.join(os.getcwd(), "Dashboard_Ghl", "frontend"),
+        os.path.join(os.getcwd(), "Dashboard_Ghl", "backend", "frontend"),
+        "/var/task/frontend",
+        "/var/task/Dashboard_Ghl/frontend",
+        "/var/task/backend/frontend",
+        "/var/task/Dashboard_Ghl/backend/frontend",
+    ]
+
+    for candidate in candidates:
+        if os.path.isdir(candidate) and os.path.isfile(os.path.join(candidate, "index.html")):
+            print(f"[app] Found frontend at: {candidate}", file=sys.stderr)
+            return candidate
+
+    # 2. Deep scan across project tree if candidates didn't match
+    for root_search in [os.getcwd(), current_dir, "/var/task"]:
+        if os.path.exists(root_search):
+            for root, _, files in os.walk(root_search):
+                if "index.html" in files and "styles.css" in files:
+                    print(f"[app] Deep scan found frontend at: {root}", file=sys.stderr)
+                    return root
+
+    fallback = os.path.join(os.path.dirname(current_dir), "frontend")
+    print(f"[app] WARNING: index.html not found, falling back to: {fallback}", file=sys.stderr)
+    return fallback
+
+
+FRONTEND_DIR = locate_frontend_dir()
 OPPORTUNITY_STATUSES = ["open", "won", "lost", "abandoned"]
 ALLOWED_RECORDING_HOSTS = ("justcall.io", "amazonaws.com", "leadconnectorhq.com")
 
@@ -81,7 +102,13 @@ def health():
     try:
         client = get_client()
         masked = client.token[:4] + "..." + client.token[-4:]
-        return jsonify({"status": "ok", "location_id": client.location_id, "token_masked": masked})
+        return jsonify({
+            "status": "ok",
+            "location_id": client.location_id,
+            "token_masked": masked,
+            "frontend_dir": FRONTEND_DIR,
+            "frontend_exists": os.path.exists(os.path.join(FRONTEND_DIR, "index.html")),
+        })
     except Exception as e:
         return error_response(e)
 
@@ -391,10 +418,25 @@ def recording_proxy():
 @app.route("/")
 @app.route("/<path:path>")
 def frontend(path="index.html"):
-    file_path = os.path.join(FRONTEND_DIR, path)
-    if os.path.isfile(file_path):
+    if path == "favicon.ico":
+        fav = os.path.join(FRONTEND_DIR, "favicon.ico")
+        if not os.path.exists(fav):
+            return ("", 204)
+
+    target_file = os.path.join(FRONTEND_DIR, path)
+    if os.path.isfile(target_file):
         return send_from_directory(FRONTEND_DIR, path)
-    return send_from_directory(FRONTEND_DIR, "index.html")
+
+    index_file = os.path.join(FRONTEND_DIR, "index.html")
+    if os.path.isfile(index_file):
+        return send_from_directory(FRONTEND_DIR, "index.html")
+
+    return jsonify({
+        "error": "frontend_not_found",
+        "message": "index.html could not be found.",
+        "searched_dir": FRONTEND_DIR,
+        "cwd": os.getcwd(),
+    }), 404
 
 
 if __name__ == "__main__":

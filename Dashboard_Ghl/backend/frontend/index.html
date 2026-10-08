@@ -1,0 +1,313 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>GHL Analytics Dashboard</title>
+  <link rel="stylesheet" href="/styles.css" />
+  <script src="/vendor/chart.umd.min.js"></script>
+</head>
+<body>
+  <div class="shell">
+    <aside class="sidebar">
+      <div class="sidebar-brand">
+        <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+        </svg>
+        GHL Analytics
+      </div>
+      <nav class="nav">
+        <a href="#/" data-view="home" class="nav-link">Dashboard Home</a>
+        <a href="#/agents" data-view="agents" class="nav-link">Agent Performance</a>
+        <a href="#/calls" data-view="calls" class="nav-link">Call Logs</a>
+        <a href="#/sales" data-view="sales" class="nav-link">Sales &amp; Deals</a>
+        <a href="#/appointments" data-view="appointments" class="nav-link">Appointments</a>
+      </nav>
+      <button id="sidebarClose" class="sidebar-close" aria-label="Close menu">&times;</button>
+    </aside>
+    <div class="sidebar-overlay" id="sidebarOverlay"></div>
+
+    <div class="main">
+      <header class="topbar">
+        <button id="menuBtn" class="btn btn-ghost menu-btn" aria-label="Open menu">&#9776;</button>
+        <div class="brand-mobile">GHL Analytics</div>
+        <div class="topbar-meta">
+          <span id="lastUpdated" class="muted small"></span>
+          <button id="refreshBtn" class="btn btn-primary">Refresh Data</button>
+        </div>
+      </header>
+
+      <section class="filters">
+        <div class="filter-group">
+          <label for="startDate">From</label>
+          <input type="date" id="startDate" />
+        </div>
+        <div class="filter-group">
+          <label for="endDate">To</label>
+          <input type="date" id="endDate" />
+        </div>
+        <div class="filter-group presets">
+          <button class="btn btn-ghost" data-range="0">Today</button>
+          <button class="btn btn-ghost" data-range="6">7D</button>
+          <button class="btn btn-ghost" data-range="29">30D</button>
+        </div>
+        <div class="filter-group" data-filter="agent">
+          <label for="agentFilter">Agent</label>
+          <select id="agentFilter"><option value="">All agents</option></select>
+        </div>
+        <div class="filter-group" data-filter="direction">
+          <label for="directionFilter">Direction</label>
+          <select id="directionFilter">
+            <option value="">All</option>
+            <option value="inbound">Inbound</option>
+            <option value="outbound">Outbound</option>
+          </select>
+        </div>
+        <div class="filter-group" data-filter="callstatus">
+          <label for="statusFilter">Status</label>
+          <select id="statusFilter">
+            <option value="">All</option>
+            <option value="completed">Completed / Answered</option>
+            <option value="no-answer">No Answer</option>
+            <option value="missed">Missed</option>
+            <option value="busy">Busy</option>
+            <option value="voicemail">Voicemail</option>
+          </select>
+        </div>
+        <div class="filter-group" data-filter="pipeline">
+          <label for="pipelineFilter">Pipeline</label>
+          <select id="pipelineFilter"><option value="">All pipelines</option></select>
+        </div>
+        <div class="filter-group" data-filter="stage">
+          <label for="stageFilter">Stage</label>
+          <select id="stageFilter"><option value="">All stages</option></select>
+        </div>
+        <div class="filter-group" data-filter="oppstatus">
+          <label for="oppStatusFilter">Deal Status</label>
+          <select id="oppStatusFilter"><option value="">All</option></select>
+        </div>
+        <div class="filter-group" data-filter="apptstatus">
+          <label for="apptStatusFilter">Appt Status</label>
+          <select id="apptStatusFilter">
+            <option value="">All</option>
+            <option value="new">New</option>
+            <option value="confirmed">Confirmed</option>
+            <option value="showed">Showed</option>
+            <option value="noshow">No-show</option>
+            <option value="cancelled">Cancelled</option>
+          </select>
+        </div>
+        <div class="filter-group grow" data-filter="search">
+          <label for="searchBox">Search</label>
+          <input type="text" id="searchBox" placeholder="Customer or phone..." />
+        </div>
+        <button id="applyBtn" class="btn btn-primary">Filter</button>
+      </section>
+
+      <div class="range-hint">Fast cached scanning active. Data synchronized live with GoHighLevel API.</div>
+      <div id="errorBanner" class="error-banner" hidden></div>
+
+      <main>
+        <!-- HOME VIEW -->
+        <section class="view" id="view-home">
+          <section class="panel">
+            <h2>Call &amp; Pipeline Overview</h2>
+            <div id="overviewCards" class="card-grid"></div>
+            <div id="homeSalesSummaryCards" class="card-grid" style="margin-top:16px;"></div>
+          </section>
+
+          <!-- PIPELINE STAGE DISTRIBUTION TABLE WITH FILTER & SORT -->
+          <section class="panel">
+            <div class="panel-head">
+              <div class="panel-title-area">
+                <h2>Pipeline Stage Distribution</h2>
+                <span id="stageTableSummary" class="stage-summary-badge">0 Active Leads</span>
+              </div>
+              <div class="table-actions">
+                <div class="table-search-wrap">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="11" cy="11" r="8"></circle>
+                    <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                  </svg>
+                  <input type="text" id="stageTableSearch" placeholder="Filter pipeline or stage..." />
+                </div>
+                <label class="filter-toggle-label">
+                  <input type="checkbox" id="stageTableHideZero" />
+                  <span>Hide 0 count</span>
+                </label>
+                <button class="btn btn-ghost" data-export="homeStageTable">Export CSV</button>
+              </div>
+            </div>
+            <div class="table-scroll">
+              <table id="homeStageTable" class="data-table">
+                <thead>
+                  <tr>
+                    <th class="sortable" data-sort="pipeline_name">
+                      <span>Pipeline</span>
+                      <span class="sort-icon" id="sort-icon-pipeline_name">↕</span>
+                    </th>
+                    <th class="sortable" data-sort="stage_name">
+                      <span>Stage</span>
+                      <span class="sort-icon" id="sort-icon-stage_name">↕</span>
+                    </th>
+                    <th class="sortable text-right" data-sort="count">
+                      <span>Active Opportunities</span>
+                      <span class="sort-icon active" id="sort-icon-count">↓</span>
+                    </th>
+                  </tr>
+                </thead>
+                <tbody id="homeStageTableBody"></tbody>
+              </table>
+            </div>
+            <div id="stageTableEmpty" class="muted small text-center" style="padding: 16px;" hidden>
+              No stages match the current filter.
+            </div>
+          </section>
+
+          <section class="panel">
+            <h3 class="subhead">Call Distribution by Channel</h3>
+            <div id="callGroups" class="call-groups"></div>
+          </section>
+
+          <section class="panel">
+            <h2>Analytics &amp; Trends</h2>
+            <div class="chart-grid">
+              <div class="chart-card"><h4>Calls by Agent</h4><canvas id="chartCallsByAgent"></canvas></div>
+              <div class="chart-card"><h4>Calls by Status</h4><canvas id="chartCallsByStatus"></canvas></div>
+              <div class="chart-card wide"><h4>Call Volume Over Time</h4><canvas id="chartCallsOverTime"></canvas></div>
+            </div>
+          </section>
+
+          <section class="panel">
+            <h2>Opportunities by Pipeline</h2>
+            <div id="stageChartsGrid" class="chart-grid"></div>
+          </section>
+        </section>
+
+        <!-- AGENTS VIEW -->
+        <section class="view" id="view-agents" hidden>
+          <section class="panel">
+            <div class="panel-head">
+              <h2>Agent Performance Metrics</h2>
+              <button class="btn btn-ghost" data-export="agentTable">Export CSV</button>
+            </div>
+            <div class="table-scroll">
+              <table id="agentTable" class="data-table">
+                <thead>
+                  <tr>
+                    <th>Agent</th><th>Type</th><th>Total</th><th>Answered</th><th>Missed</th>
+                    <th>Inbound</th><th>Outbound</th><th>Total Duration</th><th>Avg Duration</th>
+                  </tr>
+                </thead>
+                <tbody id="agentTableBody"></tbody>
+              </table>
+            </div>
+            <div id="agentTableEmpty" class="muted small" style="margin-top:12px;" hidden>No call activity found for this period.</div>
+          </section>
+        </section>
+
+        <!-- CALLS VIEW -->
+        <section class="view" id="view-calls" hidden>
+          <section class="panel">
+            <div class="panel-head">
+              <h2>Detailed Call Logs</h2>
+              <button class="btn btn-ghost" data-export="callLogsTable">Export CSV</button>
+            </div>
+            <div class="table-scroll">
+              <table id="callLogsTable" class="data-table">
+                <thead>
+                  <tr>
+                    <th>Timestamp</th><th>Agent</th><th>Contact</th><th>Phone</th>
+                    <th>Direction</th><th>Status</th><th>Duration</th><th>Recording</th>
+                  </tr>
+                </thead>
+                <tbody id="callLogsTableBody"></tbody>
+              </table>
+            </div>
+            <div id="callLogsEmpty" class="muted small" style="margin-top:12px;" hidden>No calls found matching the selected filters.</div>
+          </section>
+        </section>
+
+        <!-- SALES VIEW -->
+        <section class="view" id="view-sales" hidden>
+          <section class="panel">
+            <h2>Pipeline Summary</h2>
+            <div id="salesSummaryCards" class="card-grid"></div>
+          </section>
+
+          <section class="panel">
+            <div class="panel-head">
+              <h2>Stage Breakdown</h2>
+              <button class="btn btn-ghost" data-export="stageTable">Export CSV</button>
+            </div>
+            <div class="table-scroll">
+              <table id="stageTable" class="data-table">
+                <thead>
+                  <tr><th>Pipeline</th><th>Stage</th><th>Opportunities</th></tr>
+                </thead>
+                <tbody id="stageTableBody"></tbody>
+              </table>
+            </div>
+          </section>
+
+          <section class="panel">
+            <div class="panel-head">
+              <h2>Deals &amp; Opportunities</h2>
+              <button class="btn btn-ghost" data-export="salesTable">Export CSV</button>
+            </div>
+            <div id="salesTruncatedNote" class="muted small" style="margin-bottom:8px;" hidden></div>
+            <div class="table-scroll">
+              <table id="salesTable" class="data-table">
+                <thead>
+                  <tr>
+                    <th>Customer</th><th>Agent</th><th>Pipeline</th><th>Stage</th><th>Status</th>
+                    <th>Value</th><th>Created</th><th>Updated</th>
+                  </tr>
+                </thead>
+                <tbody id="salesTableBody"></tbody>
+              </table>
+            </div>
+            <div id="salesEmpty" class="muted small" style="margin-top:12px;" hidden>No deals found.</div>
+          </section>
+        </section>
+
+        <!-- APPOINTMENTS VIEW -->
+        <section class="view" id="view-appointments" hidden>
+          <section class="panel">
+            <div class="panel-head">
+              <h2>Scheduled Appointments</h2>
+              <button class="btn btn-ghost" data-export="appointmentsTable">Export CSV</button>
+            </div>
+            <div class="table-scroll">
+              <table id="appointmentsTable" class="data-table">
+                <thead>
+                  <tr><th>Customer</th><th>Assigned Agent</th><th>Date &amp; Time</th><th>Status</th></tr>
+                </thead>
+                <tbody id="appointmentsTableBody"></tbody>
+              </table>
+            </div>
+            <div id="appointmentsEmpty" class="muted small" style="margin-top:12px;" hidden>No appointments found.</div>
+          </section>
+        </section>
+      </main>
+
+      <footer class="footer muted small">
+        GoHighLevel (LeadConnector) High-Performance Reporting Console.
+      </footer>
+    </div>
+  </div>
+
+  <div class="player-dock" id="playerOverlay" hidden>
+    <div class="modal-head">
+      <span>Call Recording Player</span>
+      <button type="button" id="playerClose" class="modal-close">&times;</button>
+    </div>
+    <div id="playerSubtitle" class="player-subtitle"></div>
+    <audio id="playerAudio" controls autoplay style="width:100%"></audio>
+    <div id="playerStatus" class="muted small" hidden></div>
+    <a id="playerOpenLink" href="#" target="_blank" rel="noopener" class="rec-link">Open recording directly ↗</a>
+  </div>
+
+  <script src="/app.js"></script>
+</body>
+</html>
