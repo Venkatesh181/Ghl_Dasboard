@@ -12,7 +12,23 @@ from opportunities_service import build_pipeline_lookup, list_opportunities, sal
 from appointments_service import list_appointments
 from charts_service import calls_over_time, calls_by_status
 
-FRONTEND_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "frontend")
+# Robust frontend directory resolution for both Local and Vercel environments
+CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
+POSSIBLE_FRONTEND_PATHS = [
+    os.path.join(os.path.dirname(CURRENT_DIR), "frontend"),
+    os.path.join(CURRENT_DIR, "frontend"),
+    os.path.join(os.getcwd(), "frontend"),
+    os.path.join(os.getcwd(), "Dashboard_Ghl", "frontend"),
+    "/var/task/frontend",
+    "/var/task/Dashboard_Ghl/frontend",
+]
+
+FRONTEND_DIR = os.path.join(os.path.dirname(CURRENT_DIR), "frontend")
+for p in POSSIBLE_FRONTEND_PATHS:
+    if os.path.isdir(p) and os.path.exists(os.path.join(p, "index.html")):
+        FRONTEND_DIR = p
+        break
+
 OPPORTUNITY_STATUSES = ["open", "won", "lost", "abandoned"]
 ALLOWED_RECORDING_HOSTS = ("justcall.io", "amazonaws.com", "leadconnectorhq.com")
 
@@ -22,6 +38,7 @@ def _host_allowed(hostname):
         return False
     hostname = hostname.lower()
     return any(hostname == h or hostname.endswith("." + h) for h in ALLOWED_RECORDING_HOSTS)
+
 
 app = Flask(__name__, static_folder=None)
 
@@ -374,7 +391,10 @@ def recording_proxy():
 @app.route("/")
 @app.route("/<path:path>")
 def frontend(path="index.html"):
-    return send_from_directory(FRONTEND_DIR, path)
+    file_path = os.path.join(FRONTEND_DIR, path)
+    if os.path.isfile(file_path):
+        return send_from_directory(FRONTEND_DIR, path)
+    return send_from_directory(FRONTEND_DIR, "index.html")
 
 
 if __name__ == "__main__":
